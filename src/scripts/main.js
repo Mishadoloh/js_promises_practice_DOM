@@ -1,82 +1,105 @@
 'use strict';
 
-// First Promise
-let firstClicked = false;
+/* -------------------- First Promise -------------------- /
+/  Resolve: лівий клік у документі
+    Reject: через 3 секунди без кліку */
 const firstPromise = new Promise((resolve, reject) => {
-  const onClick = (e) => {
-    // eslint-disable-next-line prettier/prettier
-    if (e.button === 0) { // Left click
-      firstClicked = true;
-      resolve('First promise was resolved on a left click in the document');
+  const onLeftClick = (e) => {
+    if (e.button === 0) {
+      cleanup();
+      resolve('First promise was resolved');
     }
   };
 
-  document.addEventListener('click', onClick);
+  const cleanup = () => {
+    document.removeEventListener('click', onLeftClick);
+    clearTimeout(timerId);
+  };
 
-  setTimeout(() => {
-    if (!firstClicked) {
-      // eslint-disable-next-line prefer-promise-reject-errors
-      reject('First promise was rejected in 3 seconds if not clicked');
-    }
+  document.addEventListener('click', onLeftClick);
+
+  const timerId = setTimeout(() => {
+    cleanup();
+    // eslint-disable-next-line prefer-promise-reject-errors
+    reject('First promise was rejected');
   }, 3000);
 });
-// Second Promise
+
+/* -------------------- Second Promise ------------------- /
+/  Resolve: будь-який клік (лівий або правий). Ніколи не reject */
 const secondPromise = new Promise((resolve) => {
-  const onClick = (e) => {
+  const onAnyClick = (e) => {
     if (e.button === 0 || e.button === 2) {
+      cleanup();
       resolve('Second promise was resolved');
-      document.removeEventListener('click', onClick);
-      document.removeEventListener('contextmenu', onClick);
     }
   };
 
-  document.addEventListener('click', onClick);
-  document.addEventListener('contextmenu', onClick);
+  const cleanup = () => {
+    document.removeEventListener('click', onAnyClick);
+    document.removeEventListener('contextmenu', onAnyClick);
+  };
+
+  document.addEventListener('click', onAnyClick);
+  document.addEventListener('contextmenu', onAnyClick); // правий клік
 });
-// Third Promise
-let leftClicked = false;
-let rightClicked = false;
+
+/* -------------------- Third Promise -------------------- /
+/  Resolve: коли відбулися і лівий, і правий кліки (у будь-якому порядку) */
 const thirdPromise = new Promise((resolve) => {
-  const onClick = (e) => {
-    // eslint-disable-next-line curly
-    if (e.button === 0) leftClicked = true;
-    // eslint-disable-next-line curly
-    if (e.button === 2) rightClicked = true;
+  let leftClicked = false;
+  let rightClicked = false;
 
-    if (leftClicked && rightClicked) {
-      // eslint-disable-next-line max-len, prettier/prettier
-      resolve('Third promise was resolved only after both left and right clicks happened');
-      document.removeEventListener('click', onClick);
-      document.removeEventListener('contextmenu', onClick);
+  const onLeft = (e) => {
+    if (e.button === 0) {
+      leftClicked = true;
+      tryResolve();
     }
   };
 
-  document.addEventListener('click', onClick);
-  document.addEventListener('contextmenu', onClick);
+  const onRight = (e) => {
+    if (e.button === 2) {
+      rightClicked = true;
+      tryResolve();
+    }
+  };
+
+  const tryResolve = () => {
+    if (leftClicked && rightClicked) {
+      cleanup();
+      resolve('Third promise was resolved');
+    }
+  };
+
+  const cleanup = () => {
+    document.removeEventListener('click', onLeft);
+    document.removeEventListener('contextmenu', onRight);
+  };
+
+  document.addEventListener('click', onLeft);
+  document.addEventListener('contextmenu', onRight);
 });
 
-// Success handler
+/* ---------------------- Handlers ----------------------- */
 function handleSuccess(message) {
-  const newElement = document.createElement('div');
+  const el = document.createElement('div');
 
-  newElement.classList.add('notification', 'success');
-  newElement.classList.add('message', 'success-message');
-  newElement.setAttribute('data-qa', 'notification');
-  newElement.textContent = message;
-  document.body.appendChild(newElement);
+  el.setAttribute('data-qa', 'notification');
+  el.className = 'notification success';
+  el.textContent = message;
+  document.body.appendChild(el);
 }
 
-// Error handler
 function handleError(errorMessage) {
-  const errorElement = document.createElement('div');
+  const el = document.createElement('div');
 
-  errorElement.classList.add('notification', 'error');
-  errorElement.classList.add('message', 'error-message');
-  errorElement.setAttribute('data-qa', 'notification');
-  errorElement.textContent = errorMessage;
-  document.body.appendChild(errorElement);
+  el.setAttribute('data-qa', 'notification');
+  el.className = 'notification error';
+  el.textContent = errorMessage;
+  document.body.appendChild(el);
 }
-// Attach handlers
-firstPromise.then(handleSuccess).catch(handleError);
-secondPromise.then(handleSuccess).catch(handleError);
-thirdPromise.then(handleSuccess).catch(handleError);
+
+/* ----------------- Attach handlers -------------------- */
+firstPromise.then(handleSuccess, handleError);
+secondPromise.then(handleSuccess);
+thirdPromise.then(handleSuccess, handleError);
